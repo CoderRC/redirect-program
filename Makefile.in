@@ -1,0 +1,41 @@
+srcdir=@srcdir@
+VPATH=$(srcdir):bin
+
+prefix=@prefix@
+
+EXEEXT=@EXEEXT@
+
+CC=@CC@
+DEFS=@DEFS@
+CPPFLAGS=@CPPFLAGS@
+CFLAGS=@CFLAGS@
+LDFLAGS=@LDFLAGS@
+REDIRECT=@REDIRECT@
+TARGETS=
+MACROS=
+override is_target = 1
+override target = 1
+$(foreach a,$(REDIRECT),\
+  $(if $(is_target),\
+    $(eval TARGETS += $(addsuffix $(EXEEXT),$a))\
+    $(eval override target = $a)\
+    $(eval override is_target =),\
+    $(eval MACROS += $a)\
+    $(eval $(target)$(EXEEXT)_MACRO = $a)\
+    $(eval override is_target = 1)\
+  )\
+)
+
+all: compile_redirect_program
+
+compile_redirect_program: bin $(TARGETS)
+
+$(TARGETS): bin/%$(EXEEXT): source/main.c
+	$(CC) $(DEFS) $(CPPFLAGS) $(CFLAGS) -DREDIRECT=\"$($@_MACRO)\" $< -o $@ $(LDFLAGS)
+
+bin:
+	mkdir -p $@
+
+install:
+	test -z "$(prefix)/bin" || mkdir -p "$(prefix)/bin"
+	cp -R bin/* "$(prefix)/bin"
