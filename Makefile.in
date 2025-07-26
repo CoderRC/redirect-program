@@ -1,5 +1,5 @@
 srcdir=@srcdir@
-VPATH=$(srcdir):bin
+VPATH=$(srcdir)
 
 prefix=@prefix@
 
@@ -11,12 +11,26 @@ CPPFLAGS=@CPPFLAGS@
 CFLAGS=@CFLAGS@
 LDFLAGS=@LDFLAGS@
 REDIRECT=@REDIRECT@
+DIRS=
+TOPLEVEL_DIRS=
 TARGETS=
 MACROS=
 override is_target = 1
 override target = 1
 $(foreach a,$(REDIRECT),\
   $(if $(is_target),\
+    $(eval DIRS += $(dir $a))\
+    $(eval TOPLEVEL_DIRS += $(subst /s, ,$(subst /t,	,\
+      $(firstword \
+        $(subst //, ,\
+          $(subst $(or )	,/t,\
+            $(subst $(or ) ,/s,\
+              $(subst /,//,$a)\
+            )\
+          )\
+        )\
+      )\
+    )))\
     $(eval TARGETS += $(addsuffix $(EXEEXT),$a))\
     $(eval override target = $a)\
     $(eval override is_target =),\
@@ -25,17 +39,24 @@ $(foreach a,$(REDIRECT),\
     $(eval override is_target = 1)\
   )\
 )
+TOPLEVEL_DIRS:=$(sort $(TOPLEVEL_DIRS))
 
 all: compile_redirect_program
 
-compile_redirect_program: bin $(TARGETS)
+compile_redirect_program: $(TARGETS)
 
-$(TARGETS): bin/%$(EXEEXT): source/main.c
-	$(CC) $(DEFS) $(CPPFLAGS) $(CFLAGS) -DREDIRECT=\"$($@_MACRO)\" $< -o $@ $(LDFLAGS)
-
-bin:
+$(DIRS):
 	mkdir -p $@
 
+$(foreach a,$(TARGETS),\
+  $(dir $a)%$(EXEEXT): source/main.c | $(dir $a)\
+  ;	$$(CC) $$(DEFS) $$(CPPFLAGS) $$(CFLAGS) -DREDIRECT=\"$$($$@_MACRO)\" $$< -o $$@ $$(LDFLAGS)\
+)
+
 install:
-	test -z "$(prefix)/bin" || mkdir -p "$(prefix)/bin"
-	cp -R bin/* "$(prefix)/bin"
+	$(foreach topdir,$(TOPLEVEL_DIRS),\
+	  test -z "$(prefix)/$(topdir)" || mkdir -p "$(prefix)/$(topdir)"; \
+	)
+	$(foreach topdir,$(TOPLEVEL_DIRS),\
+	  cp -R "$(topdir)"/* "$(prefix)/$(topdir)"; \
+	)
